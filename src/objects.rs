@@ -178,8 +178,9 @@ pub struct FriktionEpochInfo {
     pub total_deposits: u64,       // 128
     pub instant_deposits: u64,     // 136
     pub instant_withdrawals: u64,  // 144
-    pub dao_deposits: u64,         // 152
-    pub minted_options: u64,       // 160
+    // previously dao_deposits
+    pub unused_uint_1: u64,  // 152
+    pub minted_options: u64, // 160
 
     pub enter_num_times_called: u64,        // 168
     pub swap_premium_num_times_called: u64, // 176
@@ -321,16 +322,16 @@ pub struct ExtraVoltData {
     // true after obtained target collateralization, ready to end round
     pub done_rebalancing: bool, // 356
 
-    pub dao_authority: Pubkey,    // 388
-    pub serum_program_id: Pubkey, // 420
-    pub entropy_cache: Pubkey,    // 348 (actual)
+    pub non_payer_authority: Pubkey, // 388
+    pub serum_program_id: Pubkey,    // 420
+    pub entropy_cache: Pubkey,       // 348 (actual)
     /// pubkey of perp market to hedge
     pub spot_perp_market: Pubkey, // 354 (380)
-    pub extra_key_7: Pubkey,      // 516  412
-    pub extra_key_8: Pubkey,      // 548 444
-    pub extra_key_9: Pubkey,      // 580
-    pub extra_key_10: Pubkey,     // 612
-    pub extra_key_11: Pubkey,     // 644
+    pub extra_key_7: Pubkey,         // 516  412
+    pub extra_key_8: Pubkey,         // 548 444
+    pub extra_key_9: Pubkey,         // 580
+    pub extra_key_10: Pubkey,        // 612
+    pub extra_key_11: Pubkey,        // 644
     pub extra_key_12: Pubkey,
     pub extra_key_13: Pubkey,
     pub extra_key_14: Pubkey, // 636
