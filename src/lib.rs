@@ -37,7 +37,7 @@ mod volt_abi {
         Ok(())
     }
 
-    pub(crate) fn claim_pending(ctx: Context<ClaimPendingDeposit>) -> Result<()> {
+    pub(crate) fn claim_pending_deposit(ctx: Context<ClaimPendingDeposit>) -> Result<()> {
         Ok(())
     }
     pub(crate) fn claim_pending_withdrawal(ctx: Context<ClaimPendingWithdrawal>) -> Result<()> {
