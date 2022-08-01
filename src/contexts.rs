@@ -11,11 +11,11 @@ use crate::{
 )]
 pub struct Deposit<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub payer_authority: Signer<'info>,
 
     #[account(signer)]
     /// CHECK: skip, attributes may change depending on use case. validation happens in handler
-    pub dao_authority: AccountInfo<'info>,
+    pub non_payer_authority: AccountInfo<'info>,
 
     /// CHECK: skip, attributes may change depending on use case. validation happens in handler
     pub authority_check: AccountInfo<'info>,
@@ -23,7 +23,6 @@ pub struct Deposit<'info> {
     #[account(mut, address=volt_vault.vault_mint)]
     pub vault_mint: Box<Account<'info, Mint>>,
 
-    #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
 
     #[account(address=volt_vault.vault_authority)]
@@ -31,12 +30,12 @@ pub struct Deposit<'info> {
     pub vault_authority: AccountInfo<'info>,
 
     #[account(
-            seeds = [
-                &volt_vault.key().to_bytes()[..],
-                b"extraVoltData"
-            ],
-            bump,
-          )]
+        seeds = [
+            &volt_vault.key().to_bytes()[..],
+            b"extraVoltData"
+        ],
+        bump,
+      )]
     // main data struct. stores any persistent metadata about the volt and its strategy
     pub extra_volt_data: Box<Account<'info, ExtraVoltData>>,
 
@@ -52,42 +51,43 @@ pub struct Deposit<'info> {
     #[account(address=volt_vault.writer_token_pool)]
     pub writer_token_pool: AccountInfo<'info>,
 
+    // no token::authority check here so that it can be either payer_authority or non_payer_authority
     #[account(mut)]
     // user controlled token account w/ mint == vault mint
     pub vault_token_destination: Box<Account<'info, TokenAccount>>,
 
+    // no token::authority check here so that it can be either payer_authority or non_payer_authority
     #[account(mut)]
     // user controlled token account w/ mint == underlying mint
     pub underlying_token_source: Box<Account<'info, TokenAccount>>,
 
     #[account(mut,
-            seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundInfo"],
-            bump)]
+        seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundInfo"],
+        bump)]
     pub round_info: Box<Account<'info, Round>>,
 
     #[account(mut,
-            seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundVoltTokens"],
-            bump)]
+        seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundVoltTokens"],
+        bump)]
     pub round_volt_tokens: Box<Account<'info, TokenAccount>>,
 
     #[account(mut,
-            seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundUnderlyingTokens"],
-            bump)]
+        seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundUnderlyingTokens"],
+        bump)]
     pub round_underlying_tokens: Box<Account<'info, TokenAccount>>,
 
     #[account(init_if_needed,
-            space=PendingDeposit::LEN + 8,
-            seeds = [volt_vault.key().as_ref(), authority_check.key().as_ref() ,b"pendingDeposit"],
-            bump,
-            payer = authority)]
+        space=PendingDeposit::LEN + 8,
+        seeds = [volt_vault.key().as_ref(), authority_check.key().as_ref() ,b"pendingDeposit"],
+        bump,
+        payer = payer_authority)]
     pub pending_deposit_info: Box<Account<'info, PendingDeposit>>,
 
-    #[account(init_if_needed,
-            space=FriktionEpochInfo::LEN + 8,
-            seeds = [&volt_vault.key().to_bytes()[..], (volt_vault.round_number).to_le_bytes().as_ref() ,b"epochInfo"],
-            bump,
-            payer=authority
-        )]
+    #[account(
+        mut,
+        seeds = [&volt_vault.key().to_bytes()[..], (volt_vault.round_number).to_le_bytes().as_ref() ,b"epochInfo"],
+        bump,
+    )]
     pub epoch_info: Box<Account<'info, FriktionEpochInfo>>,
 
     /// CHECK: skip, checked by macro
@@ -110,40 +110,38 @@ pub struct Deposit<'info> {
 }
 #[derive(Accounts)]
 #[instruction(
-        withdraw_amount: u64,
-    )]
+    withdraw_amount: u64,
+)]
 pub struct Withdraw<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub payer_authority: Signer<'info>,
 
     #[account(signer)]
     /// CHECK: skip, attributes may change depending on use case. validation happens in handler,
     /// if is authority on token accounts (aka === authority_check), should be a signer
-    pub dao_authority: AccountInfo<'info>,
+    pub non_payer_authority: AccountInfo<'info>,
 
     /// CHECK: skip, attributes may change depending on use case. validation happens in handler. hoowever,
-    /// should be equal to 1 of authority or dao_authority
+    /// should be equal to 1 of authority or non_payer_authority
     pub authority_check: AccountInfo<'info>,
 
     #[account(mut)]
     pub vault_mint: Box<Account<'info, Mint>>,
 
-    #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
+
+    #[account(
+        seeds = [
+            &volt_vault.key().to_bytes()[..],
+            b"extraVoltData"
+        ],
+        bump,
+    )]
+    pub extra_volt_data: Box<Account<'info, ExtraVoltData>>,
 
     /// CHECK: skip, checked by macro
     #[account(address=volt_vault.vault_authority)]
     pub vault_authority: AccountInfo<'info>,
-
-    #[account(
-            seeds = [
-                &volt_vault.key().to_bytes()[..],
-                b"extraVoltData"
-            ],
-            bump,
-          )]
-    // main data struct. stores any persistent metadata about the volt and its strategy
-    pub extra_volt_data: Box<Account<'info, ExtraVoltData>>,
 
     #[account(address=extra_volt_data.whitelist)]
     /// CHECK: skip, checked by macro
@@ -161,26 +159,27 @@ pub struct Withdraw<'info> {
 
     // round accounts
     #[account(mut,
-            seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundInfo"],
-            bump)]
+        seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundInfo"],
+        bump)]
     pub round_info: Box<Account<'info, Round>>,
 
     #[account(mut,
-            seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundUnderlyingTokens"],
-            bump)]
+        seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundUnderlyingTokens"],
+        bump)]
     pub round_underlying_tokens: Box<Account<'info, TokenAccount>>,
 
     #[account(init_if_needed,
-            space=PendingWithdrawal::LEN + 8,
-            seeds = [volt_vault.key().as_ref(), authority_check.key().as_ref(), b"pendingWithdrawal"],
-            bump,
-            payer = authority)]
+        space=PendingWithdrawal::LEN + 8,
+        seeds = [volt_vault.key().as_ref(), authority_check.key().as_ref(), b"pendingWithdrawal"],
+        bump,
+        payer=payer_authority
+    )]
     pub pending_withdrawal_info: Box<Account<'info, PendingWithdrawal>>,
 
     #[account(mut,
-            seeds = [&volt_vault.key().to_bytes()[..], (volt_vault.round_number).to_le_bytes().as_ref() ,b"epochInfo"],
-            bump,
-        )]
+        seeds = [&volt_vault.key().to_bytes()[..], (volt_vault.round_number).to_le_bytes().as_ref() ,b"epochInfo"],
+        bump,
+    )]
     pub epoch_info: Box<Account<'info, FriktionEpochInfo>>,
 
     #[account(mut)]
@@ -199,17 +198,17 @@ pub struct Withdraw<'info> {
 )]
 pub struct DepositWithClaim<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub payer_authority: Signer<'info>,
 
     #[account(signer)]
-    /// CHECK: skip, checked by the volt program
-    pub dao_authority: AccountInfo<'info>,
+    /// CHECK: skip, attributes may change depending on use case. validation happens in handler
+    pub non_payer_authority: AccountInfo<'info>,
 
     #[account()]
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, attributes may change depending on use case. validation happens in handler
     pub sol_transfer_authority: AccountInfo<'info>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, attributes may change depending on use case. validation happens in handler
     #[account()]
     pub authority_check: AccountInfo<'info>,
 
@@ -218,7 +217,8 @@ pub struct DepositWithClaim<'info> {
 
     #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
-    /// CHECK: skip, checked by the volt program
+
+    /// CHECK: skip, checked by macro
     #[account(address=volt_vault.vault_authority)]
     pub vault_authority: AccountInfo<'info>,
 
@@ -235,7 +235,7 @@ pub struct DepositWithClaim<'info> {
     #[account(mut, address=volt_vault.deposit_pool)]
     pub deposit_pool: Box<Account<'info, TokenAccount>>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by macro
     #[account(address=volt_vault.writer_token_pool)]
     pub writer_token_pool: AccountInfo<'info>,
 
@@ -261,22 +261,22 @@ pub struct DepositWithClaim<'info> {
         space=PendingDeposit::LEN + 8,
         seeds = [volt_vault.key().as_ref(), authority_check.key().as_ref() ,b"pendingDeposit"],
         bump,
-        payer = authority)]
+        payer = payer_authority)]
     pub pending_deposit_info: Box<Account<'info, PendingDeposit>>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by PDA, can't require an object because may not exist (if round number is 0)
     #[account(mut,
         seeds = [volt_vault.key().as_ref(), pending_deposit_info.round_number.to_le_bytes().as_ref() , b"roundInfo"],
         bump)]
     pub pending_deposit_round_info: AccountInfo<'info>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by PDA, can't require an object because may not exist (if round number is 0)
     #[account(mut,
         seeds = [volt_vault.key().as_ref(), pending_deposit_info.round_number.to_le_bytes().as_ref() , b"roundVoltTokens"],
         bump)]
     pub pending_deposit_round_volt_tokens: AccountInfo<'info>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by PDA, can't require an object because may not exist (if round number is 0)
     #[account(mut,
             seeds = [volt_vault.key().as_ref(), pending_deposit_info.round_number.to_le_bytes().as_ref() , b"roundUnderlyingTokens"],
             bump)]
@@ -297,13 +297,14 @@ pub struct DepositWithClaim<'info> {
 )]
 pub struct WithdrawWithClaim<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub payer_authority: Signer<'info>,
 
     #[account(signer)]
-    /// CHECK: skip, checked by the volt program
-    pub dao_authority: AccountInfo<'info>,
+    /// CHECK: skip, attributes may change depending on use case. validation happens in handler
+    pub non_payer_authority: AccountInfo<'info>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, attributes may change depending on use case. validation happens in handler. hoowever,
+    /// should be equal to 1 of authority or non_payer_authority
     pub authority_check: AccountInfo<'info>,
 
     #[account(mut)]
@@ -312,7 +313,7 @@ pub struct WithdrawWithClaim<'info> {
     #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by macro
     #[account(address=volt_vault.vault_authority)]
     pub vault_authority: AccountInfo<'info>,
 
@@ -351,16 +352,16 @@ pub struct WithdrawWithClaim<'info> {
         space=PendingWithdrawal::LEN + 8,
         seeds = [volt_vault.key().as_ref(), authority_check.key().as_ref(), b"pendingWithdrawal"],
         bump,
-        payer = authority)]
+        payer = payer_authority)]
     pub pending_withdrawal_info: Box<Account<'info, PendingWithdrawal>>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by PDA. may be a non-existent account if there is no pendign withdrawal to process
     #[account(mut,
       seeds = [volt_vault.key().as_ref(), pending_withdrawal_info.round_number.to_le_bytes().as_ref() , b"roundInfo"],
       bump)]
     pub pending_withdrawal_round_info: AccountInfo<'info>,
 
-    /// CHECK: skip, checked by the volt program
+    /// CHECK: skip, checked by PDA. may be a non-existent account if there is no pendign withdrawal to process
     #[account(mut,
         seeds = [volt_vault.key().as_ref(), pending_withdrawal_info.round_number.to_le_bytes().as_ref() , b"roundUlPending"],
     bump)]
@@ -474,7 +475,6 @@ pub struct ClaimPendingWithdrawal<'info> {
 pub struct CancelPendingDeposit<'info> {
     pub authority: Signer<'info>,
 
-    #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
 
     #[account(
@@ -516,10 +516,8 @@ pub struct CancelPendingDeposit<'info> {
     )]
     pub epoch_info: Box<Account<'info, FriktionEpochInfo>>,
 
-    // system accounts
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
@@ -529,7 +527,6 @@ pub struct CancelPendingWithdrawal<'info> {
     #[account(mut)]
     pub vault_mint: Account<'info, Mint>,
 
-    #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
 
     #[account(
@@ -568,5 +565,4 @@ pub struct CancelPendingWithdrawal<'info> {
     // system accounts
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    rent: Sysvar<'info, Rent>,
 }

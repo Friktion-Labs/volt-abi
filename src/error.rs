@@ -1,5 +1,4 @@
 use anchor_lang::error_code;
-use solana_program::msg;
 
 #[error_code]
 pub enum ErrorCode {
@@ -191,7 +190,7 @@ pub enum ErrorCode {
     InvalidClaimPendingState,
     #[msg("invalid end round state")]
     InvalidEndRoundState,
-    #[msg("shouldn't have multiple pending deposits")]
+    #[msg("shouldn't have multiple pending withdrawals")]
     CantHaveMultiplePendingWithdrawals,
     #[msg("invalid claim pending withdrawal state")]
     InvalidClaimPendingWithdrawalState,
@@ -257,8 +256,6 @@ pub enum ErrorCode {
     PendingWithdrawalDoesNotExist,
     #[msg("cannot cancel pending withdrawal from old round")]
     CannotCancelPendingWithdrawalFromOldRound,
-    #[msg("invalid take pending withdrawal fees state")]
-    InvalidTakePendingWithdrawalFeesState,
     #[msg("pending deposit info not initialized")]
     PendingDepositInfoNotInitialized,
     #[msg("pending deposits does not exist")]
