@@ -19,3 +19,8 @@ To see an example of this ABI in action, see our [CPI Examples](https://github.c
 ## Practical Notes:
 
 - vault_token_destination && underlying_token_source accounts must be initialized prior to calling the Deposit instruction. The authorities on those token accounts must be the dao_authority, which practically is a PDA of the invoking program.
+
+
+## Warning
+
+> **Unaudited sdk** Friktion Labs takes no responsibility for damage  that results from usage of this sdk, nor makes any guarantee as to the correctness of the sdk. Users of these crates take full responsibility for any mishaps that results from the usage of this sdk.
