@@ -539,3 +539,234 @@ pub struct VoltVault {
 impl VoltVault {
     pub const LEN: usize = 739;
 }
+
+#[account]
+#[derive(Debug)]
+pub struct PrincipalProtectionVaultV1 {
+    pub initialized: bool,
+
+    pub vault_name: String,
+
+    // pub base: PrincipalProtectionCoreV1,
+    pub keys: PrincipalProtectionAccountsV1,
+
+    pub allocation_strategy: SecondLegAllocationStrategy,
+    pub lending_strategy: LendingStrategy,
+    // pub meta: PrincipalProtectionMetadataV1,
+    // pub padding1: [u8; 1024],
+    // pub padding2: [u8; 1024],
+    // pub padding3: [u8; 1024],
+    // pub padding4: [u8; 1024],
+    // pub padding5: [u8; 1024],
+    // pub padding6: [u8; 1024],
+    // pub padding7: [u8; 1024],
+}
+
+impl PrincipalProtectionVaultV1 {
+    // pub const LEN: usize = PrincipalProtectionCoreV1::LEN
+    pub const LEN: usize = 1 + 25  + PrincipalProtectionAccountsV1::LEN
+        // + PrincipalProtectionMetadataV1::LEN
+        // + PrincipalProtectionPadding::LEN
+        // 25 for vault name
+        + 1 + 8 + 1 + LendingParams::LEN + 8192;
+
+    pub fn get_underlying_deposit_queue(&self) -> Pubkey {
+        self.get_primary_lending_vault_keys()
+            .underlying_deposit_queue
+    }
+
+    pub fn get_underlying_withdraw_queue(&self) -> Pubkey {
+        self.get_primary_lending_vault_keys()
+            .underlying_withdraw_queue
+    }
+
+    pub fn get_primary_lending_vault_keys(&self) -> &PrimaryVaultKeys {
+        &self.keys.lending_keys.primary_vault
+    }
+
+    pub fn get_primary_lending_vault_pda(&self) -> Pubkey {
+        self.get_primary_lending_vault_keys().vault_pda
+    }
+
+    pub fn get_lending_shares_pool(&self) -> Pubkey {
+        self.keys.lending_shares_pool
+    }
+
+    pub fn get_deposit_into_lending_ata(&self) -> Pubkey {
+        self.keys.deposit_into_lending_ata
+    }
+
+    pub fn get_shares_mint(&self) -> Pubkey {
+        self.keys.lending_keys.primary_vault.shares_mint
+    }
+
+    pub fn get_option_token_pool(&self) -> Pubkey {
+        self.keys.options_keys.option_token_pool
+    }
+
+    pub fn get_deposit_tracking_pda(&self) -> Pubkey {
+        self.keys.lending_keys.primary_vault.deposit_tracking_pda
+    }
+
+    pub fn get_deposit_tracking_account(&self) -> Pubkey {
+        self.keys
+            .lending_keys
+            .primary_vault
+            .deposit_tracking_account
+    }
+
+    pub fn get_primary_lending_vault_pk(&self) -> Pubkey {
+        self.get_primary_lending_vault_keys().vault
+    }
+
+    pub fn get_primary_lending_vault_program_id(&self) -> Pubkey {
+        self.get_primary_lending_vault_keys().program_id
+    }
+}
+
+// #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+// pub struct PrincipalProtectionCoreV1 {
+
+//     // pub padding: [u8; 1024],
+// }
+
+// impl PrincipalProtectionCoreV1 {
+//     // pub const LEN: usize = 2 * 16 + 8;
+//     pub const LEN: usize = std::mem::size_of::<PrincipalProtectionCoreV1>();
+// }
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+pub struct PrincipalProtectionAccountsV1 {
+    pub lending_keys: LendingKeys,
+    pub options_keys: OptionsContractKeys,
+    pub lending_shares_pool: Pubkey,
+    pub deposit_into_lending_ata: Pubkey,
+    pub extra_key1: Pubkey,
+    pub extra_key2: Pubkey,
+    pub extra_key3: Pubkey,
+    pub extra_key4: Pubkey,
+    pub extra_key5: Pubkey,
+    pub extra_key6: Pubkey,
+    pub extra_key7: Pubkey,
+}
+
+impl PrincipalProtectionAccountsV1 {
+    // 25 is buffer
+    // pub const LEN: usize = (8 + 1 + 1 + 1 + 25 + 3) * 32;
+    pub const LEN: usize = std::mem::size_of::<PrincipalProtectionAccountsV1>();
+}
+
+// #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+// pub struct PrincipalProtectionMetadataV1 {
+//     pub padding: [u8; 1024],
+// }
+
+// impl PrincipalProtectionMetadataV1 {
+//     // pub const LEN: usize = 100;
+//     pub const LEN: usize = std::mem::size_of::<PrincipalProtectionMetadataV1>();
+// }
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+
+pub struct OptionsContractKeys {
+    pub program_id: Pubkey,
+    pub options_contract: Pubkey,
+    pub option_token_pool: Pubkey,
+
+    pub extra_key1: Pubkey,
+    pub extra_key2: Pubkey,
+    pub extra_key3: Pubkey,
+    pub extra_key4: Pubkey,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq)]
+pub enum SecondLegAllocationStrategy {
+    // apr in bps (e.g 1000 bps = 10%)
+    MinApr {
+        apr: u64,
+    },
+    // fraction of weekly pnl in bps (e.g 5000 bps = 1/2)
+    ProjectedPnlFraction {
+        fraction_bps: u64,
+    },
+    // fixed fraction of assets each week (in bps)
+    FixedFraction {
+        fraction_bps: u64,
+    },
+
+    ExtraStrategy1 {
+        uint1: u64,
+        uint2: u64,
+        uint3: u64,
+        uint4: u64,
+        u81: u8,
+        u82: u8,
+        u83: u8,
+        u84: u8,
+    },
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
+
+pub struct LendingParams {
+    pub bool1: u8,
+    pub bool2: u8,
+    pub bool3: u8,
+    pub bool4: u8,
+    pub max_allowed_utilization_bps: u64,
+    pub unused_uint1: u64,
+    pub unused_uint2: u64,
+    pub unused_uint3: u64,
+    pub unused_uint4: u64,
+    pub unused_float1: f64,
+    pub unused_float2: f64,
+    pub unused_float3: f64,
+    pub unused_float4: f64,
+}
+
+impl LendingParams {
+    pub const LEN: usize = std::mem::size_of::<LendingParams>();
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq)]
+
+pub enum LendingStrategy {
+    TulipOptimizer { params: LendingParams },
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq)]
+pub struct PrimaryVaultKeys {
+    pub vault: Pubkey,
+    pub vault_pda: Pubkey,
+    // == vault_ul_account
+    pub underlying_deposit_queue: Pubkey,
+    pub underlying_withdraw_queue: Pubkey,
+
+    pub shares_mint: Pubkey,
+    pub underlying_mint: Pubkey,
+
+    pub deposit_tracking_account: Pubkey,
+    pub deposit_tracking_queue_account: Pubkey,
+    pub deposit_tracking_hold_account: Pubkey,
+    pub deposit_tracking_pda: Pubkey,
+
+    pub program_id: Pubkey,
+
+    pub extra_key_1: Pubkey,
+    pub extra_key_2: Pubkey,
+    pub extra_key_3: Pubkey,
+    pub extra_key_4: Pubkey,
+    pub extra_key_5: Pubkey,
+    pub extra_key_6: Pubkey,
+    // pub extra_key_7: Pubkey,
+    // pub extra_key_8: Pubkey,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq)]
+pub struct LendingKeys {
+    // TulipOptimizer {
+    pub primary_vault: PrimaryVaultKeys,
+    pub mango_vault: Pubkey,
+    pub solend_vault: Pubkey,
+    pub tulip_vault: Pubkey,
+}

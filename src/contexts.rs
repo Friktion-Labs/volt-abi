@@ -1,9 +1,88 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::{
-    ExtraVoltData, FriktionEpochInfo, PendingDeposit, PendingWithdrawal, Round, VoltVault,
+    ExtraVoltData, FriktionEpochInfo, PendingDeposit, PendingWithdrawal,
+    PrincipalProtectionVaultV1, Round, VoltVault,
 };
+
+#[derive(Accounts, Clone)]
+pub struct EntropyBaseAccountsWithoutBanks<'info> {
+    pub extra_volt_data: Box<Account<'info, ExtraVoltData>>,
+
+    /// CHECK: skip, checked by macro
+    #[account(address=extra_volt_data.entropy_program_id)]
+    pub program: AccountInfo<'info>,
+    /// CHECK: skip, checked by macro
+    #[account( address=extra_volt_data.entropy_group)]
+    pub group: AccountInfo<'info>,
+
+    /// CHECK: skip, checked by macro
+    #[account(address=extra_volt_data.entropy_cache)]
+    pub cache: AccountInfo<'info>,
+
+    /// CHECK: skip, checked by macro
+    #[account(address=extra_volt_data.entropy_account)]
+    pub account: AccountInfo<'info>,
+}
+
+impl<'info> EntropyBaseAccountsWithoutBanks<'info> {
+    pub fn from_remaining_accounts(accounts: &mut &[AccountInfo<'info>]) -> Result<Self> {
+        EntropyBaseAccountsWithoutBanks::try_accounts(
+            &crate::id(),
+            accounts,
+            &vec![] as &[u8],
+            &mut BTreeMap::<String, u8>::new(),
+            &mut BTreeSet::<Pubkey>::new(),
+        )
+    }
+}
+
+#[derive(Accounts, Clone)]
+pub struct PrincipalProtectionContextAccounts<'info> {
+    pub volt_vault: Box<Account<'info, VoltVault>>,
+
+    #[account(
+        seeds = [
+          &volt_vault.key().to_bytes()[..],
+          b"protectionVault"
+      ],
+      bump
+    )]
+    pub pp_vault: Box<Account<'info, PrincipalProtectionVaultV1>>,
+
+    #[account(mut, address=pp_vault.get_deposit_tracking_account())]
+    /// CHECK: checked by macro
+    pub deposit_tracking_account: AccountInfo<'info>,
+
+    #[account(mut, address=pp_vault.get_lending_shares_pool())]
+    /// CHECK: checked by macro
+    pub lending_shares_pool: Box<Account<'info, TokenAccount>>,
+
+    #[account(mut, address=pp_vault.get_primary_lending_vault_pk())]
+    /// CHECK: checked by macro
+    pub lending_vault: AccountInfo<'info>,
+
+    #[account(address=pp_vault.get_primary_lending_vault_program_id(), executable)]
+    /// CHECK: checked by macro
+    pub lending_vault_program: AccountInfo<'info>,
+}
+
+impl<'info> PrincipalProtectionContextAccounts<'info> {
+    pub fn from_remaining_accounts(
+        accounts: &mut &[AccountInfo<'info>],
+    ) -> Result<PrincipalProtectionContextAccounts<'info>> {
+        PrincipalProtectionContextAccounts::try_accounts(
+            &crate::id(),
+            accounts,
+            &vec![] as &[u8],
+            &mut BTreeMap::<String, u8>::new(),
+            &mut BTreeSet::<Pubkey>::new(),
+        )
+    }
+}
 
 #[derive(Accounts)]
 #[instruction(
@@ -23,6 +102,7 @@ pub struct Deposit<'info> {
     #[account(mut, address=volt_vault.vault_mint)]
     pub vault_mint: Box<Account<'info, Mint>>,
 
+    #[account(mut)]
     pub volt_vault: Box<Account<'info, VoltVault>>,
 
     #[account(address=volt_vault.vault_authority)]
@@ -54,12 +134,12 @@ pub struct Deposit<'info> {
     // no token::authority check here so that it can be either payer_authority or non_payer_authority
     #[account(mut)]
     // user controlled token account w/ mint == vault mint
-    pub vault_token_destination: Box<Account<'info, TokenAccount>>,
+    pub user_vault_tokens: Box<Account<'info, TokenAccount>>,
 
     // no token::authority check here so that it can be either payer_authority or non_payer_authority
     #[account(mut)]
     // user controlled token account w/ mint == underlying mint
-    pub underlying_token_source: Box<Account<'info, TokenAccount>>,
+    pub user_ul_tokens: Box<Account<'info, TokenAccount>>,
 
     #[account(mut,
         seeds = [volt_vault.key().as_ref(), volt_vault.round_number.to_le_bytes().as_ref() ,b"roundInfo"],
@@ -89,21 +169,6 @@ pub struct Deposit<'info> {
         bump,
     )]
     pub epoch_info: Box<Account<'info, FriktionEpochInfo>>,
-
-    /// CHECK: skip, checked by macro
-    #[account(address=extra_volt_data.entropy_program_id)]
-    pub entropy_program: AccountInfo<'info>,
-    /// CHECK: skip, checked by macro
-    #[account(address=extra_volt_data.entropy_group)]
-    pub entropy_group: AccountInfo<'info>,
-
-    /// CHECK: skip, checked by macro
-    #[account(address=extra_volt_data.entropy_account)]
-    pub entropy_account: AccountInfo<'info>,
-
-    /// CHECK: skip, checked by macro
-    #[account(address=extra_volt_data.entropy_cache)]
-    pub entropy_cache: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
