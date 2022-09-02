@@ -1,3 +1,10 @@
+## [0.0.4] - 2022-07-30
+
+### Breaking
+- program: deposit and deposit_with_claim both accept volt-specific accounts as remaining_accounts rather than in context now.
+            NOTE: please see https://github.com/Friktion-Labs/lightning for example code
+- program: deposit_with_claim now requires > 200k CUs
+
 ## [0.0.3] - 2022-07-30
 
 ### Refactors:
